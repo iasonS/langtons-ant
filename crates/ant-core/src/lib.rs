@@ -1,5 +1,6 @@
 // =====================================================================================
-// THE RULES. A port of the rules block of index.html, one to one: same names (in snake_case),
+// THE RULES. Ported one to one from the rules block of the original page (index.html, removed;
+// in git history at 8cb1e5c): same names (in snake_case),
 // same constants, same timetables, same order of operations, same tie-breaks. Nothing here
 // draws or touches a page. An ant is plain data; advance(ant, k) moves its clock k steps on.
 //

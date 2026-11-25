@@ -2,7 +2,7 @@
 name = "ant-core"
 version = "0.1.0"
 edition = "2021"
-description = "The rules of the Langton's ant page, ported from JavaScript: plain functions over plain data."
+description = "The rules of the Langton's ant atlas: plain functions over plain data."
 publish = false
 
 [dependencies]

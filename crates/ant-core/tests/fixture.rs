@@ -1,7 +1,9 @@
 // The main proof of the port: the Rust ant, run the same number of steps in one call, equals the
 // JavaScript ant field for field, down to the hashes of the whole grid and of the visit counts.
-// The fixtures are written by tools/js-reference.js from index.html. If one differs, the Rust is
-// wrong: never edit a fixture to make a test pass.
+// The fixtures were recorded from the original page (index.html, removed) with tools/js-reference.js
+// (removed too; both in git history at ecadee5). They are frozen: a change to the rules that is
+// meant to change what an ant does needs a new fixture made by the Rust and a reason in the commit.
+// Never edit a fixture just to make a test pass.
 mod common;
 use ant_core::*;
 use common::*;

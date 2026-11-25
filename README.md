@@ -35,9 +35,6 @@ cargo run --release -p atlas
 | `--demo [N[,RULE]]` | Every ant at step N (default 60,000), paused |
 | `--shot FILE.png` | With `--demo`: write one picture and exit, no window |
 
-> [!NOTE]
-> `index.html` is the original browser version. It still works: open it in a browser.
-
 ## How it decides
 
 ![How a panel gets its word](docs/how-it-decides.drawio.svg)
@@ -83,7 +80,7 @@ Type `RRLRRLLRLR`: its panel says **proved**, *same ant as RRL*, *simulated 0*.
 |---|---|
 | `crates/ant-core` | The rules. No drawing, no dependencies. |
 | `crates/atlas` | The window app. `picture.rs` decides, `ui.rs` draws. |
-| `tools/js-reference.js` | Runs the rules of `index.html` to make the test fixtures. |
+| `crates/ant-core/tests/data` | Fixtures recorded from the original JavaScript page. |
 
 Diagrams are `.drawio.svg` files: open them in [draw.io](https://www.drawio.com) to edit.
 
@@ -93,7 +90,7 @@ Diagrams are `.drawio.svg` files: open them in [draw.io](https://www.drawio.com)
 cargo test --release
 ```
 
-- **Fixtures.** Every rule of 2 to 12 letters (4,094) at 300,000 steps matches the JavaScript field for field, down to every cell.
+- **Fixtures.** Every rule of 2 to 12 letters (4,094) at 300,000 steps matches the original JavaScript page field for field, down to every cell.
 - **Traps.** Ants that repeat for a long time and then stop are never called proved.
 - **Positions.** `position_at` equals a plain step-by-step ant at later steps.
 - **Same ant.** Copies match a plain run of the copied rule.
