@@ -1,6 +1,17 @@
 # CLAUDE.md: langtons-ant
 
-Contents: [What it is](#what-it-is) · [Rules](#rules) · [Checking](#checking) · [Git](#git)
+Contents: [Rust](#rust) · [What it is](#what-it-is) · [Rules](#rules) · [Checking](#checking) · [Git](#git)
+
+## Rust
+
+A Cargo workspace beside the page: `Cargo.toml` at the root, one crate, `crates/ant-core`, no dependencies (`flate2` in the tests only, to read the fixtures).
+`ant-core` is a one-to-one port of the rules block of `index.html` (same names in snake_case, same constants, timetables, order of operations and tie-breaks, same comments). It must decide the same as the page, step for step. `index.html` stays the page for now and stays the source of the rules: change the rules there first, then the port.
+
+- Run the checks: `cargo test --release` (about 20 s). Speed: `cargo run --release -p ant-core --example speed`. Before a commit: `cargo fmt`, `cargo clippy --all-targets`.
+- The main proof is `tests/fixture.rs`: every rule of 2 to 12 letters that starts with R at 300,000 steps, and the 28 start rules at 2,000,000, equal the JavaScript field for field, with hashes of the whole grid and visit counts. If a field differs, the Rust is wrong: fix the port, never the fixture.
+- The other tests port the rule checks of the list below (`small`, `jump`, `traps`, `edge`, `same`) against a plain ant with a hash map grid (`tests/common`).
+- Regenerate the fixtures after any change to the rules block: `node tools/js-reference.js` (about 20 s). It cuts the block out of `index.html` and writes `crates/ant-core/tests/data/*.jsonl.gz`.
+- `simulate()` checks once per call that the steps cannot reach the edge, then indexes the grid without bounds checks. Keep that check.
 
 ## What it is
 
