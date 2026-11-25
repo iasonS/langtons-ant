@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ant atlas</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --ink: #e8e6df; --muted: #8b8a84; --line: #26282d;
+    --accent: #69a621; --warn: #d861aa; --calm: #259cde; --panel: #111316;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+    font: 13px/1.5 ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace; }
+  #top { position: fixed; left: 0; right: 0; top: 0; height: 52px; padding: 0 20px; display: flex;
+    align-items: center; gap: 24px; }
+  #name { font-size: 20px; letter-spacing: .02em; white-space: nowrap; }
+  #why { flex: 1; min-width: 0; color: var(--muted); font-size: 11px; line-height: 14px; max-height: 42px; overflow: hidden; }
+  #totals { display: flex; gap: 20px; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #totals b { color: var(--ink); font-weight: 400; }
+  /* a narrow window: the totals go one above the other (four lines in the strip's 52 px), so the sentence keeps its room;
+     narrower still, it loses its middle part, and then its last sentence */
+  @media (max-width: 1559px) { #totals { flex-direction: column; align-items: flex-end; gap: 0; font-size: 11px; line-height: 13px; } }
+  @media (max-width: 999px) { #why .more { display: none; } }
+  @media (max-width: 799px) { #why .last { display: none; } }
+  #grid { position: fixed; left: 0; right: 0; top: 52px; bottom: 56px; padding: 2px 12px 12px; display: grid; gap: 8px; }
+  .p { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px 6px; display: flex; flex-direction: column;
+    min-width: 0; min-height: 0; overflow: hidden; }
+  .p.ok { border-color: #34500f; } .p.rep { border-color: #6b3155; } .p.nev { border-color: #17506f; }
+  .hd { min-height: 20px; display: flex; justify-content: space-between; align-items: baseline; white-space: nowrap; }
+  .rule { font-weight: 600; letter-spacing: .08em; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .rule.long { font-size: 9px; line-height: 10px; letter-spacing: 0; white-space: normal; word-break: break-all; align-self: center; }
+  .word { color: var(--muted); font-size: 11px; padding-left: 8px; }
+  .word.ok { color: var(--accent); } .word.rep { color: var(--warn); } .word.nev { color: var(--calm); } .word.off { color: var(--ink); }
+  .pic { flex: 1; min-height: 0; position: relative; }
+  .pic canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .ft { height: 42px; display: flex; flex-direction: column; justify-content: flex-end; color: var(--muted);
+    font-size: 10px; line-height: 14px; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+  .ft .two { display: flex; justify-content: space-between; }
+  #tip { position: fixed; display: none; pointer-events: none; z-index: 5; background: #16181c; border: 1px solid #3a3d44;
+    border-radius: 5px; padding: 6px 9px; font-size: 12px; font-variant-numeric: tabular-nums;
+    white-space: pre-wrap; width: max-content; max-width: calc(100vw - 16px); }   /* a line wraps only when the window is narrower than it */
+  #ui { position: fixed; left: 0; right: 0; bottom: 0; height: 56px; padding: 0 20px; display: flex;
+    align-items: center; gap: 16px; background: var(--panel); border-top: 1px solid var(--line);
+    overflow-x: auto; white-space: nowrap; }
+  button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
+    padding: 7px 12px; border-radius: 6px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sl { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .sl input[type=range] { width: 160px; accent-color: var(--accent); }
+  .sl input[type=text] { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line);
+    padding: 7px 10px; border-radius: 6px; width: clamp(27ch, 100vw - 760px, 58ch); text-transform: uppercase; letter-spacing: .06em; }
+  .sl input[type=text]::placeholder { color: var(--muted); text-transform: none; letter-spacing: 0; font-size: 11px; }
+  .sl input.bad { border-color: var(--warn); }
+  .sl span { color: var(--ink); min-width: 30px; font-variant-numeric: tabular-nums; }
+  .spd { margin-left: auto; }
+  .spd span { min-width: 160px; }
+  .spd span.set { color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="top">
+  <div id="name">ant atlas</div>
+  <div id="why">A panel says proved only after the page has checked that its ant repeats for ever. <span class="more">From then on the ant is not simulated: its place is worked out. </span><span class="last">Rules that start with L are mirror images, which is why the short ones all start with R.</span></div>
+  <div id="totals"><span>proved <b id="tp"></b></span><span title="A 1995 theorem: an ant whose rule, read as a cycle, is made of runs of even length comes back to its start again and again for ever when it starts on the blank grid. So it never builds a highway">never a highway (theorem) <b id="tn"></b></span><span>simulated <b id="ts"></b></span><span>skipped <b id="tk"></b></span></div>
+</div>
+
+<div id="grid"></div>
+<div id="tip"></div>
+
+<div id="ui">
+  <label class="sl">rule <input id="rule" type="text" maxlength="24" placeholder="L and R, 2 to 24 letters. Try one that starts like a proved ant" title="L and R, 2 to 24 letters. Try one that starts like a proved ant" spellcheck="false" autocomplete="off"></label>
+  <button id="add">add</button>
+  <label class="sl spd">speed <input id="spd" type="range" min="0" max="1000" value="480"><span id="rate"></span></label>
+  <button id="pause">pause</button>
+  <button id="again">restart</button>
+</div>
+
+<script>
+// =====================================================================================
+// THE RULES. Nothing in this block draws or touches the page, so it can move to a game
+// engine as it is. An ant is plain data; advance(ant, k) moves its clock k steps on.
+//
+// The ant. A grid of cells, all colour 0 at the start. A rule is a string of L and R,
+// one letter per colour. One step: read the colour under the ant, turn the way the rule
+// says for that colour (R right, L left), give the cell its next colour (after the last
+// colour comes 0 again), move one cell forward.
+//
+// The proof. Some ants end up doing the same p steps again and again, moved by a fixed
+// shift each time: a highway. Seeing it repeat proves nothing: some ants do the same
+// steps dozens of times in a row and then stop (the checks name one). So certify() does
+// not count repeats. It takes the last p steps, lists the cells they read, and looks
+// AHEAD along the shift: will the next round find on each of its cells the colour the
+// last round found there? And the round after that, counting what the rounds before it
+// leave behind? It follows the strip ahead until it is outside the box of everything
+// the ant ever touched. Out there every cell is 0 and nothing can differ any more. If
+// every round checks out, the ant repeats for ever: each round is the last one again,
+// one shift further on. If a round does not check out, the same sum gives the exact
+// step at which the repeat ends.
+//
+// The looks. The detector looks at set step counts, on two timetables: a quick look for
+// short periods every few hundred steps, and a full look for every period, rarer as the
+// ant gets older. A repeat that the check refused stays in ant.repeat until the step it
+// ends. Each look notes one refused repeat (the one that ends latest), and ant.fake keeps
+// the noted one that covers the most steps: what a detector that counts repeats would
+// have fallen for. It is no record of the ant: a short repeat can begin and end between
+// two looks, unseen.
+//
+// The jump. A proved ant is not simulated any more. Where it is after N steps is one
+// line of arithmetic: positionAt(ant, N).
+//
+// The same ant. Write a rule again and again without end: its endless word. A cell that
+// was visited v times shows colour v mod n, so the next visit turns by letter number v
+// of the endless word. Every cell's visits are counted (ant.vis). An ant that visits no
+// cell more than V times only ever reads letters 0 to V-1, so any rule whose endless
+// word starts with the same V letters makes the same moves. For a proved highway V is
+// worked out for the whole endless run (proof.letters). copyAnt() then gives a rule
+// with the same start the same proof, with no step simulated.
+//
+// Never a highway. For some rules part of the answer is known before the first step. Read
+// a rule as a cycle (after its last letter comes its first). If it is made of runs of L
+// and runs of R that all have even length (LLRR, RLLR, LLRRRR), a theorem says that its ant,
+// started on the blank grid, comes back to its start cell again and again for ever (1995,
+// "Further travels with my ant"). An ant on a highway leaves its start for ever, so such
+// an ant never builds one. evenRuns() reads this off the rule. It proves nothing by
+// itself and changes nothing in the detector: the page only counts how often the ant is
+// back (ant.homeVisits, ant.lastHome).
+// =====================================================================================
+// Headings: 0 up, 1 right, 2 down, 3 left. y grows down.
+const HIST = 32768, HIST_MASK = HIST - 1;       // steps an ant remembers (a power of two)
+const MAX_PERIOD = 8192;                        // longest period the detector looks for
+const QUICK_EVERY = 256, QUICK_PERIOD = 128;    // the quick look: every 256 steps, periods up to 128
+const START_SIDE = 256, MAX_SIDE = 4096;        // the grid doubles from the first to the second
+const BORDER = 2;                               // the ant never stands closer to the edge than this
+
+// a rule typed by hand: 2 to 24 letters, only L and R
+function validRule(text) {
+  const rule = String(text).trim().toUpperCase();
+  return /^[LR]{2,24}$/.test(rule) ? rule : null;
+}
+
+// Is the rule, read as a cycle, made of runs of L and runs of R that all have even length?
+// (RLLR: the run RR goes around the end.) A rule with one letter only has no runs of both: false.
+// For such a rule a theorem says the ant never builds a highway from the blank grid (see the banner).
+function evenRuns(rule) {
+  const n = rule.length;
+  let first = 0;   // a place where a run begins: its letter differs from the one before it, around the end
+  while (first < n && rule[first] === rule[(first + n - 1) % n]) first++;
+  if (first === n) return false;
+  for (let k = 0, run = 0; k < n; k++) {
+    run++;
+    if (rule[(first + k) % n] !== rule[(first + k + 1) % n]) { if (run % 2 === 1) return false; run = 0; }
+  }
+  return true;
+}
+
+// The start set: RL, then every rule of 3 to 5 letters that starts with R,
+// has both letters and is not a shorter rule written several times (RLRL is RL), then three
+// long ones. A rule that starts with L is the mirror image of one that starts with R.
+function startRules() {
+  const list = ['RL'];
+  for (let len = 3; len <= 5; len++) for (let b = 0; b < 1 << (len - 1); b++) {
+    let rule = 'R';
+    for (let k = len - 2; k >= 0; k--) rule += (b >> k) & 1 ? 'R' : 'L';
+    let repeat = false;
+    for (let d = 1; d < len; d++) if (len % d === 0 && rule.slice(0, d).repeat(len / d) === rule) repeat = true;
+    if (rule.includes('L') && !repeat) list.push(rule);
+  }
+  return list.concat(['LRRRRRLLR', 'LLRRRLRLRLLR', 'RRLLLRLLLRRR']);
+}
+
+function makeAnt(rule) {
+  const side = START_SIDE;
+  return {
+    rule, n: rule.length, turn: Uint8Array.from(rule, ch => (ch === 'R' ? 1 : 3)),   // added to the heading
+    grid: new Uint8Array(side * side), side, off: side >> 1,   // world cell (x,y) is grid[(y+off)*side + (x+off)]
+    vis: new Uint8Array(side * side), maxVisits: 0,            // visits of each cell (255 = 255 or more), and the largest
+    x: 0, y: 0, h: 0,                                          // the simulated ant, after `simulated` steps
+    homeVisits: 1, lastHome: 0,                                // times it has stood on its start cell (0,0), the start counted, and the step count of the last time
+    steps: 0, simulated: 0,                                    // the clock, and how much of it was really simulated
+    minX: 0, maxX: 0, minY: 0, maxY: 0,                        // box of every cell the ant has stood on
+    // the last HIST steps, step i at index i % HIST: colour read, and position and heading BEFORE the step
+    col: new Uint8Array(HIST), px: new Int32Array(HIST), py: new Int32Array(HIST), hd: new Uint8Array(HIST),
+    nextCheck: 64, nextFull: 64,   // step counts of the next look of either kind, and of the next full look
+    state: 'running', proof: null, repeat: null, fake: null, lostAt: null,
+    copyOf: null,                  // the rule of the proved ant this one was copied from (copyAnt), else null
+  };
+}
+
+// The hot loop. The caller makes sure these steps cannot reach the edge of the grid.
+function simulate(ant, count) {
+  const grid = ant.grid, vis = ant.vis, side = ant.side, turn = ant.turn, last = ant.n - 1;
+  const col = ant.col, px = ant.px, py = ant.py, hd = ant.hd;
+  let x = ant.x, y = ant.y, h = ant.h, minX = ant.minX, maxX = ant.maxX, minY = ant.minY, maxY = ant.maxY;
+  let i = (y + ant.off) * side + (x + ant.off), j = ant.simulated & HIST_MASK, most = ant.maxVisits;
+  const home = ant.off * side + ant.off;   // the start cell (0,0); its index changes when the grid grows
+  let homes = 0, back = 0;                 // times the ant came to stand on it in these steps, and after which of them last
+  for (let s = 0; s < count; s++) {
+    const c = grid[i], w = vis[i];
+    col[j] = c; px[j] = x; py[j] = y; hd[j] = h; j = (j + 1) & HIST_MASK;
+    h = (h + turn[c]) & 3;
+    grid[i] = c === last ? 0 : c + 1;
+    if (w !== 255) { vis[i] = w + 1; if (w >= most) most = w + 1; }   // one more visit; a count stops at 255
+    if (h === 0) { y--; i -= side; if (y < minY) minY = y; }
+    else if (h === 1) { x++; i++; if (x > maxX) maxX = x; }
+    else if (h === 2) { y++; i += side; if (y > maxY) maxY = y; }
+    else { x--; i--; if (x < minX) minX = x; }
+    if (i === home) { homes++; back = s; }
+  }
+  if (homes > 0) { ant.homeVisits += homes; ant.lastHome = ant.simulated + back + 1; }
+  ant.x = x; ant.y = y; ant.h = h; ant.minX = minX; ant.maxX = maxX; ant.minY = minY; ant.maxY = maxY;
+  ant.simulated += count; ant.steps += count; ant.maxVisits = most;
+}
+
+// Twice the side, the old picture in the middle. Positions are world cells, so only off changes.
+function grow(ant) {
+  const side = ant.side, big = side * 2, add = side >> 1;
+  const wider = old => {
+    const cells = new Uint8Array(big * big);
+    for (let row = 0; row < side; row++) cells.set(old.subarray(row * side, (row + 1) * side), (row + add) * big + add);
+    return cells;
+  };
+  ant.grid = wider(ant.grid); ant.vis = wider(ant.vis); ant.side = big; ant.off = big >> 1;
+}
+
+function advance(ant, k) {
+  k = Math.floor(k);   // whole steps only; 0, a negative number or NaN changes nothing
+  if (!(k > 0) || ant.state === 'lost') return;
+  while (k > 0 && ant.state === 'running') {
+    // one step moves one cell, so this many steps are safe without looking at the edge again
+    const gx = ant.x + ant.off, gy = ant.y + ant.off;
+    const room = Math.min(gx, gy, ant.side - 1 - gx, ant.side - 1 - gy) - BORDER;
+    if (room <= 0) {
+      if (ant.side >= MAX_SIDE) { ant.state = 'lost'; ant.lostAt = ant.steps; ant.repeat = null; return; }
+      grow(ant); continue;
+    }
+    const run = Math.min(k, room, ant.nextCheck - ant.steps);
+    simulate(ant, run); k -= run;
+    const t = ant.steps;
+    if (ant.repeat !== null && t > ant.repeat.endsAt) ant.repeat = null;   // that repeat is over
+    if (t < ant.nextCheck) continue;
+    // Two timetables. A full look tries every period. It costs the most, so it gets rarer as the
+    // ant gets older (but never more than 8192 steps apart). A quick look tries the short periods
+    // only, every QUICK_EVERY steps: without it a repeat of a few thousand steps can begin and end
+    // between two full looks, unseen. A quick look never moves the full timetable.
+    if (t >= ant.nextFull) {
+      detect(ant, MAX_PERIOD);
+      ant.nextFull = t + Math.min(8192, Math.max(64, Math.floor(t / 64)));
+    } else detect(ant, QUICK_PERIOD);
+    ant.nextCheck = Math.min(ant.nextFull, t - t % QUICK_EVERY + QUICK_EVERY);
+  }
+  if (ant.state !== 'running') ant.steps += k;   // proved: the rest is skipped, not simulated
+}
+
+// detect()'s notes, kept so that it allocates nothing: matches per period, the candidate periods,
+// and those the check refused
+const MATCH = new Int32Array(MAX_PERIOD + 1), CAND = new Int32Array(MAX_PERIOD), REFUSED = new Int32Array(MAX_PERIOD);
+
+// Is X (ant.repeat or ant.fake) a repeat with period p that has not ended at step T?
+const running = (X, p, T) => X !== null && X.period === p && T <= X.endsAt;
+
+// The detector. A period p is a candidate when the last 2p colours read were the same p colours
+// twice. That alone means nothing (see the banner): certify() decides. maxP = the longest period to try.
+function detect(ant, maxP) {
+  const T = ant.simulated, col = ant.col, end = T - 1, M = HIST_MASK, len = MATCH;
+  maxP = Math.min(maxP, Math.floor(T / 2));
+  const span = 2 * maxP;
+  // len[p] = how many of the newest colours, going back, equal the colour p steps before them
+  // (inside the last 2*maxP steps). For all p in one pass: a stretch [from, to) that is known to
+  // match the newest colours is not compared again (the "Z algorithm"), so the work stays small
+  // even when the ant walks a long regular stretch.
+  //
+  // Nearly every period fails within the newest six colours, so those are tested first, in one go:
+  // one test that nearly always says no costs much less than six that go either way. `newest` is
+  // the newest six colours packed into one number, five bits each. `six` is the six colours p steps
+  // before them, moved on by one colour per period. (& 31: a rule has at most 24 colours. With more
+  // than 32, two packs could be equal by chance but never unequal by chance, and equal packs are
+  // compared colour by colour anyway.)
+  let newest = 0;
+  for (let k = 5; k >= 0; k--) newest = (newest << 5) | (col[(end - k) & M] & 31);
+  let six = newest, from = 0, to = 0, cands = 0;
+  for (let p = 1; p <= maxP; p++) {
+    six = (six >>> 5) | ((col[(end - 5 - p) & M] & 31) << 25);
+    let z = p < to ? Math.min(to - p, len[p - from]) : 0;
+    // len[p] is noted as 0 here though it may be up to 5. Too low is safe, and p >= 6 is then no candidate.
+    if (z === 0 && p >= 6 && six !== newest) { len[p] = 0; continue; }
+    while (p + z < span && col[(end - z) & M] === col[(end - p - z) & M]) z++;
+    len[p] = z;
+    if (p + z > to) { from = p; to = p + z; }
+    if (z >= p) CAND[cands++] = p;
+  }
+  // The candidates, shortest first. The first one that is proved ends the search. Of those the check
+  // refuses, remember the one that will last longest (the shorter period on a tie).
+  const R = ant.repeat, F = ant.fake;
+  let refused = 0, bestP = 0, bestEnd = -1, bestShift = null;
+  for (let c = 0; c < cands; c++) {
+    const p = CAND[c];
+    // If q was refused and all of the last 2p colours keep period q, then a multiple p of q is a
+    // candidate with the same end as q (the colour that breaks q breaks p). Nothing new: skip it.
+    // Without this an ant on a long regular stretch tries hundreds of multiples at every check.
+    let known = false;
+    for (let r = 0; r < refused; r++) { const q = REFUSED[r]; if (p % q === 0 && len[q] >= 2 * p - q) known = true; }
+    if (known) continue;
+    // A repeat refused at an earlier look and still running: its end is exact, so it is not worked
+    // out again. (An ant on a long refused stretch would pay for that at every quick look.)
+    const old = running(R, p, T) ? R : running(F, p, T) ? F : null;
+    let endsAt, shift;
+    if (old !== null) { endsAt = old.endsAt; shift = old.shift; }
+    else {
+      const res = certify(ant, p);
+      if (res.ok) { setProof(ant, p, res); return; }
+      if (res.endsAt === null) continue;
+      endsAt = res.endsAt; shift = res.shift;
+    }
+    if (endsAt > bestEnd) { bestP = p; bestEnd = endsAt; bestShift = shift; }
+    REFUSED[refused++] = p;
+  }
+  if (bestP === 0) return;
+  // Already noted at an earlier look: all that follows was done then, and its first step was found
+  // then. (Walking back again later could come out wrong: the ring forgets.)
+  if ((R !== null && R.period === bestP && R.endsAt === bestEnd) || (F !== null && F.period === bestP && F.endsAt === bestEnd)) return;
+  const first = firstStep(ant, bestP), rounds = Math.floor((bestEnd - first) / bestP);
+  // On show: only with a good stretch still to run, and never in place of a repeat that ends later.
+  // Once on show it stays until the step it ends (advance() clears it): its end is exact, so it stays true.
+  if (bestEnd - T >= Math.max(8 * bestP, 256) && (R === null || bestEnd > R.endsAt))
+    ant.repeat = { period: bestP, shift: bestShift, from: first, endsAt: bestEnd };
+  // The record: of the repeats noted here so far (one per look), the one that covers the most steps,
+  // from its first step to its end. Only a longer one takes its place. It outlives a proof.
+  if (F === null || bestEnd - first > F.endsAt - F.from) ant.fake = { period: bestP, shift: bestShift, from: first, endsAt: bestEnd, rounds };
+}
+
+// The first step of the repeat with period p that the ant is in: walk back while a step read the
+// same colour as the step p after it. Not further back than the ring remembers; a repeat older
+// than that began at the step returned or before it.
+function firstStep(ant, p) {
+  const T = ant.simulated, col = ant.col, oldest = Math.max(0, T - HIST);
+  let i = T - p;
+  while (i > oldest && col[(i - 1) & HIST_MASK] === col[(i - 1 + p) & HIST_MASK]) i--;
+  return i;
+}
+
+// certify() keeps its notes here so that it allocates nothing: the cells one period read, in
+// order of first read (F_...), and a small hash table from grid index to place in that list.
+const F_X = new Int32Array(MAX_PERIOD), F_Y = new Int32Array(MAX_PERIOD);
+const F_V = new Int32Array(MAX_PERIOD), F_FIRST = new Int32Array(MAX_PERIOD);   // reads in the period, offset of the first
+const F_C0 = new Int32Array(MAX_PERIOD), F_SUM = new Int32Array(MAX_PERIOD);    // colour at the first read, visits by later rounds
+const H_KEY = new Int32Array(4 * MAX_PERIOD), H_AT = new Int32Array(4 * MAX_PERIOD);
+const NO = Object.freeze({ ok: false, endsAt: null });   // the plain no, the same object every time
+// one round's cells as a list, for a proof: [dx, dy, visits] relative to where the round began
+function footprint(m) {
+  const list = [];
+  for (let f = 0; f < m; f++) list.push([F_X[f] - F_X[0], F_Y[f] - F_Y[0], F_V[f]]);
+  return list;
+}
+
+// Does the ant repeat its last p steps for ever? T = ant.simulated; round 0 is steps T-p .. T-1.
+//   { ok: true, shift, cells }       proved. cells = [dx, dy, visits] per cell of one round,
+//                                    relative to where round 0 began
+//   { ok: false, shift, endsAt }     no: step index endsAt is the first that reads another colour
+//                                    than the step p before it
+//   { ok: false, endsAt: null }      no, and nothing to say about when
+function certify(ant, p) {
+  const T = ant.simulated, n = ant.n, grid = ant.grid, side = ant.side, off = ant.off;
+  if (p < 1 || p > MAX_PERIOD || p > T) return NO;
+  const start = T - p, j0 = start & HIST_MASK;
+  if (ant.hd[j0] !== ant.h) return NO;   // a round must hand the heading back
+  const sx = ant.x - ant.px[j0], sy = ant.y - ant.py[j0];
+
+  // the cells round 0 read: how often (F_V), and at which offset first (F_FIRST)
+  let bits = 3; while ((1 << bits) < 4 * p) bits++;
+  const mask = (1 << bits) - 1, down = 32 - bits;
+  H_KEY.fill(-1, 0, mask + 1);
+  let m = 0, x0 = ant.px[j0], x1 = x0, y0 = ant.py[j0], y1 = y0;
+  for (let r = 0; r < p; r++) {
+    const j = (start + r) & HIST_MASK, x = ant.px[j], y = ant.py[j], key = (y + off) * side + (x + off);
+    let s = Math.imul(key, 0x9E3779B1) >>> down;
+    while (H_KEY[s] !== -1 && H_KEY[s] !== key) s = (s + 1) & mask;
+    if (H_KEY[s] === key) { F_V[H_AT[s]]++; continue; }
+    H_KEY[s] = key; H_AT[s] = m; F_X[m] = x; F_Y[m] = y; F_V[m] = 1; F_FIRST[m] = r; m++;
+    if (x < x0) x0 = x; else if (x > x1) x1 = x;
+    if (y < y0) y0 = y; else if (y > y1) y1 = y;
+  }
+
+  if (sx === 0 && sy === 0) {
+    // Back on the same cell with the same heading. If every cell was read a multiple of n times
+    // the whole grid is back too, and the same state can only do the same again.
+    for (let f = 0; f < m; f++) if (F_V[f] % n !== 0) return NO;
+    return { ok: true, shift: [0, 0], cells: footprint(m) };
+  }
+
+  // Round j (j = 1, 2, ...) reads the cell f + j*shift where round 0 read f. Round 0 found f in the
+  // colour it has now minus its own visits. Round j finds its cell as it is now, plus the visits of
+  // rounds 1 .. j-1, which land on f + shift, f + 2*shift, ... as round 0's did on f. All mod n.
+  for (let f = 0; f < m; f++) {
+    F_C0[f] = (((grid[(F_Y[f] + off) * side + (F_X[f] + off)] - F_V[f]) % n) + n) % n;
+    F_SUM[f] = 0;
+  }
+  // Follow the strip until the round's box no longer meets the box of all the ant ever stood on,
+  // and one round more. From there on every cell is 0 and has no visits, so the sums stay as they are.
+  let J = 1;
+  while (x0 + J * sx <= ant.maxX && x1 + J * sx >= ant.minX && y0 + J * sy <= ant.maxY && y1 + J * sy >= ant.minY) J++;
+  J++;
+  for (let j = 1; j <= J; j++) {
+    const ox = j * sx, oy = j * sy;
+    for (let f = 0; f < m; f++) {   // in order of first read, so the first miss is the earliest step
+      const x = F_X[f] + ox, y = F_Y[f] + oy, gx = x + off, gy = y + off;
+      let now = 0, visits = 0;      // a cell outside the grid has never been touched
+      if (gx >= 0 && gx < side && gy >= 0 && gy < side) {
+        const key = gy * side + gx;
+        now = grid[key];
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) {
+          let s = Math.imul(key, 0x9E3779B1) >>> down;
+          while (H_KEY[s] !== -1 && H_KEY[s] !== key) s = (s + 1) & mask;
+          if (H_KEY[s] === key) visits = F_V[H_AT[s]];
+        }
+      }
+      if ((now + F_SUM[f]) % n !== F_C0[f]) return { ok: false, shift: [sx, sy], endsAt: T + (j - 1) * p + F_FIRST[f] };
+      F_SUM[f] += visits;
+    }
+  }
+  return { ok: true, shift: [sx, sy], cells: footprint(m) };
+}
+
+// The ant is proved: write down all that is needed to place it at any later step.
+function setProof(ant, p, res) {
+  const T = ant.simulated, base = T - p;
+  const onset = firstStep(ant, p);   // the detector looks often enough for the ring to reach that far
+  const pathX = new Int32Array(p), pathY = new Int32Array(p), pathH = new Uint8Array(p);
+  for (let r = 0; r < p; r++) { const j = (base + r) & HIST_MASK; pathX[r] = ant.px[j]; pathY[r] = ant.py[j]; pathH[r] = ant.hd[j]; }
+  ant.proof = { at: T, base, period: p, shift: res.shift, onset, pathX, pathY, pathH, cells: res.cells, letters: 0 };
+  ant.proof.letters = lettersRead(ant, ant.proof);
+  ant.state = res.shift[0] === 0 && res.shift[1] === 0 ? 'loop' : 'highway';
+  ant.repeat = null;
+}
+
+// The largest number of visits any cell gets over the whole endless run of a proved ant. That is
+// how many letters of its endless word the ant ever reads (see the banner). Infinity for a loop:
+// it visits the same cells without end. 255 means "255 or more": a count is one byte.
+//
+// A cell that no later round touches keeps the count it has now, and ant.maxVisits covers it.
+// Round j (j = 1, 2, ...) visits the cell f + j*shift as often as round 0 visited f. So the cell
+// y = f + j*shift ends with its count now, plus v(y - shift) + v(y - 2*shift) + ... for ALL the
+// rounds to come (v = visits by round 0, and 0 off its cells). That is `behind` below: the visits
+// by round 0 on f itself and on the cells behind f on its line, and on one more cell ahead of f
+// for every round j that has gone by.
+// The rounds are followed until one lies clear of the box of everything the ant ever stood on.
+// Round 0's own cells lie inside that box, so no cell of that round has a cell of round 0 ahead of
+// it on its line any more: each gets the whole sum along its line, on a count of 0. So does every
+// cell of every round after it, and nothing larger can come.
+function lettersRead(ant, P) {
+  const sx = P.shift[0], sy = P.shift[1], cells = P.cells, m = cells.length;
+  if (sx === 0 && sy === 0) return Infinity;
+  if (ant.maxVisits >= 255) return 255;   // some count has stopped: no exact number
+  const vis = ant.vis, side = ant.side, bx = P.pathX[0] + ant.off, by = P.pathY[0] + ant.off;
+  // round 0's visits by cell (dx, dy from where the round began), and the box of its cells
+  const visits = new Map(), key = (dx, dy) => dy * 65536 + dx;
+  let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+  for (const [dx, dy, v] of cells) {
+    visits.set(key(dx, dy), v);
+    if (dx < x0) x0 = dx; else if (dx > x1) x1 = dx;
+    if (dy < y0) y0 = dy; else if (dy > y1) y1 = dy;
+  }
+  const v0 = (dx, dy) => (dx >= x0 && dx <= x1 && dy >= y0 && dy <= y1 && visits.get(key(dx, dy))) || 0;
+  const behind = new Int32Array(m);
+  for (let f = 0; f < m; f++) {
+    let dx = cells[f][0], dy = cells[f][1], sum = 0;
+    while (dx >= x0 && dx <= x1 && dy >= y0 && dy <= y1) { sum += v0(dx, dy); dx -= sx; dy -= sy; }
+    behind[f] = sum;
+  }
+  let most = ant.maxVisits;
+  for (let j = 1; ; j++) {
+    const ox = j * sx, oy = j * sy;
+    const gx0 = bx + x0 + ox, gx1 = bx + x1 + ox, gy0 = by + y0 + oy, gy1 = by + y1 + oy;   // this round's box, in grid cells
+    const clear = gx0 > ant.maxX + ant.off || gx1 < ant.minX + ant.off || gy0 > ant.maxY + ant.off || gy1 < ant.minY + ant.off;
+    const meets = x0 + ox <= x1 && x1 + ox >= x0 && y0 + oy <= y1 && y1 + oy >= y0;   // does it still meet round 0's box?
+    for (let f = 0; f < m; f++) {
+      const dx = cells[f][0] + ox, dy = cells[f][1] + oy, gx = bx + dx, gy = by + dy;
+      const now = clear || gx < 0 || gx >= side || gy < 0 || gy >= side ? 0 : vis[gy * side + gx];   // outside the grid: never touched
+      if (now + behind[f] > most) most = now + behind[f];
+      if (meets) behind[f] += v0(dx, dy);
+    }
+    if (clear) break;
+  }
+  return Math.min(most, 255);
+}
+
+// Do the endless words of two rules agree on their first k letters? k may be larger than both
+// rules. Two endless words that agree on the first lengthA + lengthB letters are equal (both then
+// repeat the same shorter word), so more letters are never looked at, and k = Infinity asks just that.
+function sameStart(ruleA, ruleB, k) {
+  const la = ruleA.length, lb = ruleB.length, upTo = Math.min(k, la + lb);
+  for (let i = 0; i < upTo; i++) if (ruleA[i % la] !== ruleB[i % lb]) return false;
+  return true;
+}
+
+// A rule that starts like a proved highway is the same ant: the highway never reads past its first
+// proof.letters letters. Returns that ant for `rule` with no step simulated, or null when the source
+// is no proved highway, its number is not exact (255), or the rule does not start the same.
+// The copy shares the source's proof (never written). Its cells are the source's visit counts
+// mod its own number of colours: the source stopped simulating at its proof, so these are the cells
+// at step proof.at. Its clock starts at 0 like any ant's; positionAt() answers from proof.base on.
+// A loop is not copied: a loop rule proves itself within a few steps.
+function copyAnt(rule, source) {
+  const P = source.proof;
+  if (source.state !== 'highway' || !(P.letters < 255) || !sameStart(rule, source.rule, P.letters)) return null;
+  const ant = makeAnt(rule), n = ant.n, vis = source.vis.slice(), grid = new Uint8Array(vis.length);
+  for (let i = 0; i < vis.length; i++) grid[i] = vis[i] % n;
+  ant.grid = grid; ant.vis = vis; ant.side = source.side; ant.off = source.off; ant.maxVisits = source.maxVisits;
+  ant.x = source.x; ant.y = source.y; ant.h = source.h;   // where the simulating stopped, as in the source
+  ant.minX = source.minX; ant.maxX = source.maxX; ant.minY = source.minY; ant.maxY = source.maxY;
+  ant.homeVisits = source.homeVisits; ant.lastHome = source.lastHome;   // the same path, so the same times back at the start
+  ant.state = 'highway'; ant.proof = P; ant.copyOf = source.rule;
+  return ant;
+}
+
+// Position and heading after N steps, for a proved ant: whole rounds times the shift, plus the
+// place inside the round. Exact for any N up to 2^53. null if not proved, N is before the proof's
+// base, or N is not a whole number.
+function positionAt(ant, N) {
+  const P = ant.proof;
+  if (P === null || !Number.isInteger(N) || N < P.base) return null;
+  const m = Math.floor((N - P.base) / P.period), r = (N - P.base) % P.period;
+  return { x: P.pathX[r] + m * P.shift[0], y: P.pathY[r] + m * P.shift[1], h: P.pathH[r] };
+}
+
+// =====================================================================================
+// THE PICTURE. Everything below runs the clock, reads the ants and draws them.
+// =====================================================================================
+const $ = id => document.getElementById(id);
+const FONT = 'ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace';
+const TOP_H = 52, UI_H = 56, GAP = 8, HEAD = 20, FOOT = 42;   // the same numbers as in the CSS
+const MIN_TEXT_W = 128, FULL_TEXT_W = 170;   // narrower: the lines do not fit at all / only with numbers cut short
+const MIN_CELLS = 24;                   // a picture never zooms in further than this many cells across
+const DEMO_STEPS = 60000, FAR = 1e12;   // steps for a plain #demo; the far step in the tooltip
+const DEMO_MAX = 50000000;              // #demo=N runs all N steps before the first picture, so N has a limit
+const SLICE = 4096;                     // ants take turns of SLICE steps until the frame's time for them is up
+// A frame's time is shared out by the measured frame interval, so a fast screen stays smooth:
+const SIM_SHARE = 0.6, SIM_MAX_MS = 10;         // simulating gets this share of it, never more than SIM_MAX_MS
+const PAINT_SHARE = 0.25, PAINT_MIN_MS = 1.5;   // drawing the cells gets this share, never less than PAINT_MIN_MS
+const STAMP_CELLS = 200000;             // highway work per panel and frame, in cells written
+const FAKE_ROUNDS = 8, FAKE_STEPS = 512;   // a refused repeat is named on its panel when it has this many rounds and covers this many steps
+const SHOW_SECS = 0.5;                  // a running page puts a repeat on show only if it will last this long
+const SHOW_LETTERS = 24;                // the tooltip writes out this many letters of a proved ant's start at most
+const BG = '#0a0b0d', ACCENT = '#69a621', INK = [214, 211, 201];
+
+// #demo (60,000 steps), #demo=398000 (steps), #demo=60000,RLLRR (also: that rule as the first panel),
+// #demo=60000,RRLRRLLRLR (a rule that starts like a proved ant: the first panel is a copy)
+const demoM = location.hash.match(/^#demo(?:=(\d*)(?:,([LRlr]*))?)?/);
+const grid = $('grid'), tipEl = $('tip');
+let panels = [], hover = null, mouse = null, dpr = 1, charW = 6.4;
+let clock = 0, rate = 5000, paused = false, shownRate = 0, rateT = 0, rateClock = 0;
+let measured = false;   // has the speed been measured since the last load, play or restart?
+
+// Cell colours. Colour 0 is not drawn. A rule with two colours gets one ink colour. More colours
+// get one violet ramp, dark to light by colour index: even steps of lightness, one hue (OKLCH).
+function oklch(L, C, hue) {
+  const h = hue * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3,
+    s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s]
+    .map(v => Math.round(255 * (v <= 0.0031308 ? 12.92 * Math.max(0, v) : 1.055 * Math.min(1, v) ** (1 / 2.4) - 0.055)));
+}
+function cellColours(n) {   // [r, g, b] for colour 1 .. n-1
+  const k = n - 1, out = [];
+  if (k === 1) return [INK];
+  const hi = Math.min(0.985, 0.94 + 0.006 * k), lo = Math.max(0.405, hi - 0.12 * k);
+  for (let i = 0; i < k; i++) { const L = lo + (hi - lo) * i / (k - 1); out.push(oklch(L, Math.min(0.12, (1 - L) * 0.4), 290)); }
+  return out;
+}
+
+const full = v => v.toLocaleString('en');
+function short(v) {   // 1,234,567 -> 1.23M, for a line that is too long for its panel
+  if (v < 10000) return full(v);
+  let u = -1; while (v >= 1000 && u < 3) { v /= 1000; u++; }
+  return (v >= 100 ? String(Math.floor(v)) : v >= 10 ? (Math.floor(v * 10) / 10).toFixed(1) : (Math.floor(v * 100) / 100).toFixed(2)) + 'kMBT'[u];
+}
+const fitText = (max, ...texts) => texts.find(t => t.length <= max) || texts[texts.length - 1];
+const pair = s => `(${full(s[0])}, ${full(s[1])})`;
+const times = v => `${full(v)} ${v === 1 ? 'time' : 'times'}`;
+// The runs of a rule read as a cycle, from a place where a run begins: RLLR -> "LL RR" (for the tooltip of an even-run rule)
+function runsOf(rule) {
+  let k = 0; while (k < rule.length && rule[k] === rule[(k + rule.length - 1) % rule.length]) k++;
+  return ((rule.slice(k) + rule.slice(0, k)).match(/R+|L+/g) || []).join(' ');
+}
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function makePanel(rule, custom, ant) {
+  const el = document.createElement('div'); el.className = 'p';
+  el.innerHTML = '<div class="hd"><span class="rule"></span><span class="word"></span></div>' +
+    '<div class="pic"><canvas></canvas></div><div class="ft"><div></div><div></div><div class="two"><span></span><span></span></div></div>';
+  const cv = el.querySelector('canvas'), off = document.createElement('canvas');
+  const pal = new Uint32Array(rule.length);   // colour index -> pixel (0 = nothing)
+  cellColours(rule.length).forEach(([r, g, b], i) => { pal[i + 1] = (255 << 24 | b << 16 | g << 8 | r) >>> 0; });
+  const p = { rule, custom, born: 0, ant, never: evenRuns(rule), el, cv, ctx: cv.getContext('2d'), off, offCtx: off.getContext('2d'), pal,
+    pic: el.querySelector('.pic'), ruleEl: el.querySelector('.rule'), wordEl: el.querySelector('.word'), lineEls: [...el.querySelectorAll('.ft > div:not(.two), .ft span')],
+    pw: 1, ph: 1, maxChars: 30, said: '', saidRepeat: null, saidFake: null,   // what its words were last made from
+    judged: null, show: false,   // the repeat that onShow() last decided about, and what it decided
+    view: null, img: null, px: null, dirty: true, drawn: -1, shown: -1, mark: null,   // the picture of a running ant
+    frozen: false, copy: null, cw: 0, ch: 0, stamped: 0, stampsDone: false };          // and of a proved one
+  p.ruleEl.textContent = rule;
+  el.onpointerenter = () => { hover = p; }; el.onpointerleave = () => { if (hover === p) hover = null; };
+  return p;
+}
+// A new ant for this panel, at step 0. A copy becomes an ordinary ant: after a restart nothing is
+// proved yet that it could be a copy of.
+function fresh(p) {
+  p.ant = makeAnt(p.rule); p.born = 0; p.view = null; p.copy = null; p.frozen = false; p.drawn = p.shown = -1; p.dirty = true;
+}
+
+// Does this panel say `no highway`? Its rule is even-run (evenRuns()): a theorem says such an ant never
+// builds a highway from the blank grid, where every ant on the page starts. This is known from the
+// rule alone, before the first step. A proof by certify() would come first (none is known for such a rule).
+const never = p => p.never && !p.ant.proof;
+
+// How many columns? The grid that gives a panel the largest picture, as long as its lines still fit.
+// A grid whose panels only fit their lines with numbers cut short (12.3M) counts for less.
+function chooseGrid(count) {
+  const gw = innerWidth - 24, gh = innerHeight - TOP_H - UI_H - 14;
+  let best = null;
+  for (let cols = 1; cols <= count; cols++) {
+    const rows = Math.ceil(count / cols);
+    const w = (gw - GAP * (cols - 1)) / cols - 18, h = (gh - GAP * (rows - 1)) / rows - 13 - HEAD - FOOT;
+    const score = (w >= MIN_TEXT_W ? 1e6 : 0) + Math.min(w, h * 1.5) * (w >= FULL_TEXT_W ? 1 : 0.85) + w * h * 1e-6;
+    if (!best || score > best.score) best = { cols, rows, score };
+  }
+  return best;
+}
+
+function layout() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const g = chooseGrid(panels.length);
+  grid.style.gridTemplateColumns = `repeat(${g.cols}, minmax(0, 1fr))`;
+  grid.style.gridTemplateRows = `repeat(${g.rows}, minmax(0, 1fr))`;
+  const probe = document.createElement('canvas').getContext('2d'); probe.font = `10px ${FONT}`;
+  charW = probe.measureText('0'.repeat(40)).width / 40;
+  probe.font = `11px ${FONT}`;
+  const wordW = Math.ceil(probe.measureText('off the map').width) + 10;   // room for the longest status word and its gap
+  for (const p of panels) {
+    p.pw = Math.max(1, Math.round(p.pic.clientWidth * dpr)); p.ph = Math.max(1, Math.round(p.pic.clientHeight * dpr));
+    p.cv.width = p.pw; p.cv.height = p.ph; p.ctx.imageSmoothingEnabled = false;
+    p.maxChars = Math.floor(p.pic.clientWidth / charW);
+    // the rule beside the status word: smaller letters for a long rule, two small lines for a very long one
+    const size = Math.min(13, Math.floor((p.pic.clientWidth - wordW) / (p.rule.length * 0.69) * 2) / 2);
+    p.ruleEl.classList.toggle('long', size < 9); p.ruleEl.style.fontSize = size < 9 ? '' : size + 'px';
+    p.view = null; p.copy = null; p.frozen = false; p.dirty = true;   // every picture is laid out again
+  }
+  paint(true); hud();
+}
+
+// The view. One sample is one cell (drawn z pixels wide) or, when the picture is too big for
+// the panel, every s-th cell (drawn as one pixel). room 1.15 leaves 15 % to grow into.
+function fit(p, x0, x1, y0, y1, room) {
+  const needW = Math.max(MIN_CELLS, (x1 - x0 + 1) * room + 6), needH = Math.max(MIN_CELLS * p.ph / p.pw, (y1 - y0 + 1) * room + 6);
+  let z = Math.floor(Math.min(p.pw / needW, p.ph / needH)), s = 1;
+  if (z < 1) { z = 1; s = Math.ceil(Math.max(needW / p.pw, needH / p.ph)); }
+  const bw = Math.ceil(p.pw / z), bh = Math.ceil(p.ph / z);
+  p.view = { s, z, bw, bh, x0: Math.round((x0 + x1 + 1) / 2 - bw * s / 2), y0: Math.round((y0 + y1 + 1) / 2 - bh * s / 2),
+    dx: Math.floor((p.pw - bw * z) / 2), dy: Math.floor((p.ph - bh * z) / 2) };
+  if (!p.img || p.img.width !== bw || p.img.height !== bh) {
+    p.img = new ImageData(bw, bh); p.px = new Uint32Array(p.img.data.buffer); p.off.width = bw; p.off.height = bh;
+  }
+  p.dirty = true;
+}
+function outgrown(p) {   // the view only changes when the ant's box comes close to its edge, so it does not jitter
+  const v = p.view, a = p.ant, m = 2 * v.s;
+  return a.minX < v.x0 + m || a.maxX > v.x0 + (v.bw - 1) * v.s - m || a.minY < v.y0 + m || a.maxY > v.y0 + (v.bh - 1) * v.s - m;
+}
+
+// A proved ant: the view is fixed, with room on the side the highway runs to. The grid of a proved
+// ant no longer changes, so the picture keeps its own copy of the cells in view and adds to it.
+function freeze(p) {
+  const a = p.ant, [sx, sy] = a.proof.shift;
+  const ext = Math.max(12, Math.round(0.6 * Math.max(a.maxX - a.minX, a.maxY - a.minY)));
+  fit(p, a.minX - (sx < 0 ? ext : 0), a.maxX + (sx > 0 ? ext : 0), a.minY - (sy < 0 ? ext : 0), a.maxY + (sy > 0 ? ext : 0), 1.08);
+  const v = p.view, cw = v.bw * v.s, ch = v.bh * v.s, copy = new Uint8Array(cw * ch);
+  const from = Math.max(0, -a.off - v.x0), to = Math.min(cw, a.side - a.off - v.x0);   // columns of the copy that the grid has
+  for (let y = 0; y < ch && to > from; y++) {
+    const gy = v.y0 + y + a.off; if (gy < 0 || gy >= a.side) continue;
+    const g0 = gy * a.side + v.x0 + a.off;
+    copy.set(a.grid.subarray(g0 + from, g0 + to), y * cw + from);
+  }
+  p.copy = copy; p.cw = cw; p.ch = ch; p.stamped = 0; p.stampsDone = sx === 0 && sy === 0; p.frozen = true;
+}
+// Every round the ant has finished since the proof adds proof.cells once more, one shift further on.
+// Stop for good once a round lies outside the view.
+function stamp(p, limit) {
+  const a = p.ant, P = a.proof, v = p.view, rounds = Math.floor((a.steps - P.base) / P.period) - 1;
+  let work = 0, changed = false;
+  while (!p.stampsDone && p.stamped < rounds && work < limit) {
+    const j = ++p.stamped, bx = P.pathX[0] + j * P.shift[0] - v.x0, by = P.pathY[0] + j * P.shift[1] - v.y0;
+    let inside = false;
+    for (const [dx, dy, visits] of P.cells) {
+      const x = bx + dx, y = by + dy;
+      if (x >= 0 && x < p.cw && y >= 0 && y < p.ch) { const i = y * p.cw + x; p.copy[i] = (p.copy[i] + visits) % a.n; inside = true; }
+    }
+    work += P.cells.length;
+    if (inside) changed = true; else p.stampsDone = true;
+  }
+  return changed;
+}
+
+function render(p) {   // the cells in view, one pixel value per sample
+  const v = p.view, a = p.ant, px = p.px, pal = p.pal;
+  const src = p.copy || a.grid, sw = p.copy ? p.cw : a.side, sh = p.copy ? p.ch : a.side;
+  const sx0 = p.copy ? v.x0 : -a.off, sy0 = p.copy ? v.y0 : -a.off;
+  let k = 0;
+  for (let j = 0; j < v.bh; j++) {
+    const gy = v.y0 + j * v.s - sy0;
+    if (gy < 0 || gy >= sh) { px.fill(0, k, k + v.bw); k += v.bw; continue; }
+    let gx = v.x0 - sx0; const row = gy * sw;
+    for (let i = 0; i < v.bw; i++, gx += v.s) px[k++] = gx >= 0 && gx < sw ? pal[src[row + gx]] : 0;
+  }
+  p.offCtx.putImageData(p.img, 0, 0); p.dirty = false; p.drawn = a.simulated;
+}
+
+function compose(p) {   // cells, then the ant on top
+  const c = p.ctx, v = p.view, a = p.ant, P = a.proof, k = v.z / v.s;
+  const X = x => v.dx + (x - v.x0 + 0.5) * k, Y = y => v.dy + (y - v.y0 + 0.5) * k;
+  c.clearRect(0, 0, p.pw, p.ph);
+  c.drawImage(p.off, v.dx, v.dy, v.bw * v.z, v.bh * v.z);
+  const at = P ? positionAt(a, a.steps) : a;   // a proved ant is placed by arithmetic
+  p.mark = { x: at.x, y: at.y, steps: a.steps }; p.shown = a.steps;   // mark: nothing here reads it, the live check does (CLAUDE.md)
+  let mx = X(at.x), my = Y(at.y);
+  c.fillStyle = ACCENT; c.strokeStyle = BG; c.lineWidth = 1.5 * dpr;
+  if (mx >= 0 && mx <= p.pw && my >= 0 && my <= p.ph) {
+    c.beginPath(); c.arc(mx, my, Math.max(3.5 * dpr, 0.6 * k), 0, 6.283); c.fill(); c.stroke(); return;
+  }
+  if (!P) return;
+  // the ant has left the picture: an arrow where its highway crosses the edge
+  const [sx, sy] = P.shift, len = Math.hypot(sx, sy), ux = sx / len, uy = sy / len, m = 9 * dpr;
+  const round = Math.floor((a.steps - P.base) / P.period);
+  mx = X(P.pathX[0] + round * sx); my = Y(P.pathY[0] + round * sy);
+  let t = 0;
+  if (ux > 0 && mx > p.pw - m) t = Math.max(t, (mx - (p.pw - m)) / ux);
+  if (ux < 0 && mx < m) t = Math.max(t, (mx - m) / ux);
+  if (uy > 0 && my > p.ph - m) t = Math.max(t, (my - (p.ph - m)) / uy);
+  if (uy < 0 && my < m) t = Math.max(t, (my - m) / uy);
+  c.save(); c.translate(clamp(mx - t * ux, m, p.pw - m), clamp(my - t * uy, m, p.ph - m)); c.rotate(Math.atan2(uy, ux));
+  c.beginPath(); c.moveTo(6 * dpr, 0); c.lineTo(-5 * dpr, -5 * dpr); c.lineTo(-5 * dpr, 5 * dpr); c.closePath(); c.fill(); c.stroke();
+  c.restore();
+}
+
+// Bring the pictures up to date. A frame redraws only as many as fit in its ms of time (always at
+// least one) and goes on with the next ones in the next frame. sync = true draws everything now
+// (load, resize, #demo).
+let paintFrom = 0;
+function paint(sync, ms) {
+  const until = sync ? Infinity : performance.now() + ms;
+  let drawn = 0, next = -1;
+  for (let n = 0; n < panels.length; n++) {
+    const i = (paintFrom + n) % panels.length, p = panels[i], a = p.ant;
+    if (a.proof) {
+      if (!p.frozen) freeze(p);
+      if (stamp(p, sync ? Infinity : STAMP_CELLS)) p.dirty = true;
+    } else {
+      if (!p.view || outgrown(p)) fit(p, a.minX, a.maxX, a.minY, a.maxY, 1.15);
+      if (a.simulated !== p.drawn) p.dirty = true;
+    }
+    let drew = false;
+    if (p.dirty) {
+      if (drawn === 0 || performance.now() < until) { render(p); drawn++; drew = true; } else if (next < 0) next = i;
+    }
+    if (drew || (!p.dirty && a.steps !== p.shown)) compose(p);
+  }
+  if (next >= 0) paintFrom = next;
+}
+
+// The repeat a panel has on show: ant.repeat or nothing. A paused page shows whatever ant.repeat
+// holds. A running page decides once per repeat, in the frame in which it first sees it: on show
+// only if it will last SHOW_SECS at the speed the slider is set to. (At high speed an ant goes in and
+// out of short repeats many times a second, and nobody can read a word that changes every frame.)
+// Once on show, a repeat stays on show until it ends, whatever the slider does after that. A repeat
+// that is not put on show leaves the panel as `not proved`.
+function onShow(p) {
+  const a = p.ant, R = a.repeat;
+  if (R === null) { p.judged = null; return null; }
+  if (p.judged !== R) { p.judged = R; p.show = R.endsAt - a.steps >= SHOW_SECS * rate; }
+  if (paused) p.show = true;
+  return p.show ? R : null;
+}
+
+// What a panel says. `proved` only ever comes from certify(). A repeat that it refused is shown with
+// the step at which it ends, for as long as it runs (see onShow()). Otherwise an unproved panel names
+// the longest refused repeat that the looks have noted (ant.fake), if that one is long enough to be
+// worth a line. Steps on screen count from 1.
+function words(p) {
+  const a = p.ant, max = p.maxChars, P = a.proof, R = onShow(p), sim = a.simulated, skip = a.steps - sim;
+  // The two counters share a line, one at each end (the | stands for the gap between them). In a line
+  // that is too long the labels get shorter first; only then a number is cut short (1.74M).
+  const count = fitText(max, `simulated ${full(sim)}|skipped ${full(skip)}`, `sim ${full(sim)}|skip ${full(skip)}`,
+    `sim ${full(sim)}|skip ${short(skip)}`, `sim ${short(sim)}|skip ${short(skip)}`).split('|');
+  // A copy (copyAnt) is proved by its source's proof: `same ant as` is said for a copy and for nothing else.
+  if (P) return [a.state === 'loop' ? 'loop' : 'proved', 'ok',
+    fitText(max, `period ${full(P.period)} · shift ${pair(P.shift)}`, `period ${full(P.period)} · ${pair(P.shift)}`, `period ${full(P.period)}`),
+    a.copyOf ? fitText(max, `same ant as ${a.copyOf}`, `same as ${a.copyOf}`)
+      : fitText(max, `proved at step ${full(P.at)}`, `proved at ${full(P.at)}`, `proved at ${short(P.at)}`), count];
+  // An even-run rule. The word and the first line come from the theorem; the count under them is
+  // measured. The ant is simulated like any other: the theorem says what it will never do, not where
+  // it will be. A repeat on show takes the second line while it runs; so does the end of the map.
+  if (never(p)) {
+    const back = a.homeVisits - 1;
+    return ['no highway', 'nev', fitText(max, 'never a highway (theorem)', 'no highway (theorem)', 'by a theorem'),
+      a.state === 'lost' ? fitText(max, `left the map at step ${full(a.lostAt)}`, `left at step ${full(a.lostAt)}`, `left at ${full(a.lostAt)}`, `left at ${short(a.lostAt)}`)
+        : R ? fitText(max, `period ${full(R.period)} repeat · ends at step ${full(R.endsAt + 1)}`, `repeat ends at step ${full(R.endsAt + 1)}`, `repeat ends at ${full(R.endsAt + 1)}`, `repeat ends at ${short(R.endsAt + 1)}`)
+        : fitText(max, `back at its start ${times(back)}`, `back at start ${times(back)}`, `back ${times(back)}`, `back ${short(back)} times`), count];
+  }
+  // what a detector that counts repeats would have fallen for; the short form is for a narrow panel.
+  // Only once it is over: until then its rounds have not all happened yet.
+  const F = a.fake, fake = F && a.steps > F.endsAt && F.rounds >= FAKE_ROUNDS && F.endsAt - F.from >= FAKE_STEPS
+    ? fitText(max, `fake highway: ${full(F.rounds)} × period ${full(F.period)}`, `fake: ${full(F.rounds)} × period ${full(F.period)}`,
+      `${full(F.rounds)} × period ${full(F.period)}`) : '';
+  if (a.state === 'lost') return ['off the map', 'off', fake,
+    fitText(max, `left the map at step ${full(a.lostAt)}`, `left at step ${full(a.lostAt)}`, `left at ${full(a.lostAt)}`, `left at ${short(a.lostAt)}`), count];
+  if (R) return ['repeat', 'rep', `period ${full(R.period)} repeat`,
+    fitText(max, `ends at step ${full(R.endsAt + 1)}`, `ends at ${full(R.endsAt + 1)}`, `ends at ${short(R.endsAt + 1)}`), count];
+  // "not proved", never "no repeat": the ant may be in a repeat that the detector has not looked at yet
+  return ['not proved', '', fake, fitText(max, `not proved in ${full(a.steps)} steps`, `not proved in ${full(a.steps)}`, `not proved in ${short(a.steps)}`), count];
+}
+function tipText(p) {
+  const a = p.ant, P = a.proof, R = onShow(p), F = a.fake, out = [`rule ${a.rule} · ${a.n} colours`];
+  // The theorem is about the rule; how often the ant was back is measured (ant.homeVisits counts the start too).
+  if (never(p)) {
+    const back = a.homeVisits - 1;
+    out.push(`even runs (${runsOf(a.rule)}): a 1995 theorem says this ant comes back to its start again and again for ever,`,
+      `so it never leaves on a highway. ${back > 0 ? `Seen back ${times(back)}, last at step ${full(a.lastHome)}.` : 'Seen back 0 times so far.'}`);
+  }
+  if (P) {
+    const now = positionAt(a, a.steps), far = positionAt(a, FAR);
+    // proof.onset is the step from which the colours that the SOURCE read repeat. A copy makes the same
+    // moves, but it reads its own colours (the same visit counts mod another number), and those can
+    // begin to repeat at another step. So on a copy that line names the rule the number belongs to.
+    out.push(a.copyOf ? `same ant as ${a.copyOf} · proved there at step ${full(P.at)}` : `proved at step ${full(P.at)}`,
+      `${a.copyOf ? a.copyOf + ' ' : ''}repeats from step ${full(P.onset + 1)} · period ${full(P.period)} · shift ${pair(P.shift)}`,
+      `at step ${full(a.steps)}: cell ${pair([now.x, now.y])}`);
+    if (far) out.push(`at step ${full(FAR)}: cell ${pair([far.x, far.y])}`);
+    // The ant never reads past the first proof.letters letters of its rule written again and again.
+    // No lines for a loop (it visits its cells without end) or when the number is not exact (255).
+    // More letters than a rule can have: then the sentence is about a rule written again and again.
+    const L = P.letters;
+    if (L < 255) out.push(`no cell is ever visited more than ${full(L)} times:`,
+      L <= SHOW_LETTERS ? `any rule that starts ${a.rule.repeat(Math.ceil(L / a.n)).slice(0, L)} is this same ant`
+        : `any rule that, written again and again, starts ${a.rule.repeat(SHOW_LETTERS).slice(0, SHOW_LETTERS)}… (${full(L)} letters) is this same ant`);
+  } else {
+    if (a.state === 'lost') out.push(`left the map at step ${full(a.lostAt)} · the map is ${full(a.side)} cells wide`);
+    else if (R) out.push(`period ${full(R.period)} repeat · shift ${pair(R.shift)} · ends at step ${full(R.endsAt + 1)}`);
+    else out.push(`not proved in ${full(a.steps)} steps`);
+    out.push(`at step ${full(a.simulated)}: cell ${pair([a.x, a.y])}`);
+  }
+  // not "the ant's record": only the repeats that a look noted are compared (see detect())
+  if (F) out.push(`longest refused repeat the page noted: ${full(F.endsAt - F.from)} steps (${full(F.rounds)} rounds of period ${full(F.period)}), steps ${full(F.from + 1)} to ${full(F.endsAt)}`);
+  out.push(`simulated ${full(a.simulated)} · skipped ${full(a.steps - a.simulated)}`);
+  return out.join('\n');
+}
+const put = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+// One panel's words. hud() writes them ten times a second, which is enough for the counters.
+// frame() also writes them in the frame in which the ant's state, the repeat on show or its record
+// changes, so a panel never says `repeat` after that repeat has ended.
+function say(p) {
+  const a = p.ant, [word, cls, l1, l2, l3] = words(p);
+  put(p.wordEl, word); p.wordEl.className = 'word ' + cls; p.el.className = 'p ' + (cls === 'off' ? '' : cls);
+  put(p.lineEls[0], l1); put(p.lineEls[1], l2); put(p.lineEls[2], l3[0]); put(p.lineEls[3], l3[1]);
+  p.said = a.state; p.saidRepeat = onShow(p); p.saidFake = a.fake;
+}
+const stale = p => p.ant.state !== p.said || onShow(p) !== p.saidRepeat || p.ant.fake !== p.saidFake;
+function hud() {
+  let proved = 0, nev = 0, sim = 0, skip = 0;
+  for (const p of panels) {
+    const a = p.ant;
+    if (a.proof) proved++;
+    if (never(p)) nev++;
+    sim += a.simulated; skip += a.steps - a.simulated;
+    say(p);
+  }
+  put($('tp'), `${proved} of ${panels.length}`); put($('tn'), String(nev)); put($('ts'), full(sim)); put($('tk'), full(skip));
+  // running: the rate the page really reached. Paused, or not measured yet (right after load, play
+  // or restart): what the slider is set to, said as such.
+  const set = paused || !measured, r = set ? rate : shownRate;
+  put($('rate'), `${set ? 'set to ' : ''}${full(Number(r.toPrecision(3)))} steps/s`); $('rate').className = set ? 'set' : '';
+  if (hover && mouse) {
+    put(tipEl, tipText(hover)); tipEl.style.display = 'block';
+    const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    tipEl.style.left = clamp(mouse.x + 14, 8, innerWidth - w - 8) + 'px';
+    tipEl.style.top = (mouse.y - h - 12 < 8 ? mouse.y + 18 : mouse.y - h - 12) + 'px';
+  } else tipEl.style.display = 'none';
+}
+
+// The clock: every ant should stand at clock - born steps (born: see setRules()). Running ants take turns of SLICE steps
+// until they are there or the frame's ms of time for them are up. The time is read after every turn
+// (a whole round of turns can take longer than a fast screen's frame), and the next frame goes on
+// with the next ant. Then the clock only goes as far as the slowest got. Proved ants follow for free.
+let tickFrom = 0;
+function tick(dt, ms) {
+  const want = clock + rate * dt, goal = Math.floor(want), until = performance.now() + ms, count = panels.length;
+  let idle = 0;   // ants in a row with nothing left to do: a full round of them and every ant is there
+  while (idle < count) {
+    if (tickFrom >= count) tickFrom = 0;
+    const p = panels[tickFrom++], a = p.ant, need = a.state === 'running' ? goal - p.born - a.steps : 0;
+    if (need <= 0) { idle++; continue; }
+    idle = 0; advance(a, Math.min(need, SLICE));
+    if (performance.now() >= until) break;
+  }
+  let reached = goal;
+  for (const p of panels) if (p.ant.state === 'running') reached = Math.min(reached, p.ant.steps + p.born);
+  clock = reached < goal ? Math.max(clock, reached) : want;
+  for (const p of panels) {
+    const a = p.ant, k = Math.floor(clock) - p.born - a.steps;
+    if (a.proof && k > 0) advance(a, k);   // the skip
+  }
+}
+
+function setPaused(on) {
+  paused = on; $('pause').textContent = paused ? 'play' : 'pause';
+  rateT = last; rateClock = clock; measured = false;
+}
+
+// frameMs is the frame interval of this screen, in ms: the shortest of the last GAPS intervals
+// between two frames. The time for simulating and for drawing follows it. A frame that ran late
+// lasts two or three of the screen's intervals, so the shortest one is the screen's own. An average
+// is not: late frames would buy the next frames more time, and those would be late for good.
+// If every frame is late, the shortest is too long as well. So every PROBE-th frame works half as
+// long: if the screen is faster than frameMs says, that frame is on time and shows it.
+// One interval is kept between 4 and 50 ms (the first frames, a hidden tab). The words are written
+// ten times a second; a frame that writes them simulates that much shorter (hudMs, as measured the
+// last time). The clock itself runs on dt, the real time since the last frame, so steps per second
+// do not depend on the frame rate.
+const GAPS = 32, PROBE = 32, gaps = new Float64Array(GAPS).fill(1000 / 60);
+let last = 0, hudT = -1, hudMs = 0, frameMs = 1000 / 60, frames = 0;
+function frame(ts) {
+  const now = ts / 1000, dt = Math.min(0.05, now - last || 0.016);
+  if (last > 0) { gaps[frames % GAPS] = clamp((now - last) * 1000, 4, 50); frameMs = Math.min(...gaps); }
+  else { rateT = now; rateClock = clock; }   // the first frame: the speed is measured from here on
+  last = now;
+  const part = ++frames % PROBE === 0 ? 0.5 : 1, hudDue = now - hudT > 0.1;
+  if (!paused) {
+    tick(dt, part * Math.min(SIM_MAX_MS, SIM_SHARE * frameMs) - (hudDue ? hudMs : 0));
+    for (const p of panels) if (stale(p)) say(p);
+    if (now - rateT >= 0.25) { shownRate = Math.max(0, (clock - rateClock) / (now - rateT)); rateT = now; rateClock = clock; measured = true; }
+  }
+  paint(false, Math.max(PAINT_MIN_MS, part * PAINT_SHARE * frameMs));
+  if (hudDue) { hudT = now; const t0 = performance.now(); hud(); hudMs = Math.min(performance.now() - t0, SIM_MAX_MS); }
+  requestAnimationFrame(frame);
+}
+
+// The start rules, with the typed rule (if any) in front. A typed rule that starts like a proved ant
+// is that same ant: its panel gets a copy from the first proved panel that copyAnt() accepts, proved
+// at once with no step simulated.
+// born: every ant stands at clock - born steps, so a typed ant is born now. A copy starts at its
+// source's proof step, not at 0: positionAt() knows no place before the proof, and this way the
+// marker is on the highway from the first picture on. So a copy is born proof.at steps before now.
+function setRules(custom) {
+  const start = panels.filter(p => !p.custom);
+  if (!start.length) for (const rule of startRules()) start.push(makePanel(rule, false, makeAnt(rule)));
+  panels = start;
+  if (custom) {
+    let ant = null;
+    for (const q of start) { ant = copyAnt(custom, q.ant); if (ant !== null) break; }
+    if (ant !== null) advance(ant, ant.proof.at); else ant = makeAnt(custom);
+    const p = makePanel(custom, true, ant);
+    p.born = Math.floor(clock) - ant.steps;
+    panels = [p].concat(start);
+  }
+  grid.replaceChildren(...panels.map(p => p.el)); hover = null;
+}
+function addRule() {
+  const box = $('rule'), rule = validRule(box.value);
+  box.classList.toggle('bad', rule === null); box.setAttribute('aria-invalid', rule === null);
+  if (rule === null) return;
+  setRules(rule); layout();
+}
+
+const rateOf = v => 20 * (1e5 ** (v / 1000));   // 20 to 2,000,000 steps per second
+$('spd').oninput = e => { rate = rateOf(+e.target.value); };
+$('add').onclick = addRule;
+$('rule').oninput = e => { e.target.classList.remove('bad'); e.target.removeAttribute('aria-invalid'); };
+$('rule').onkeydown = e => { if (e.key === 'Enter') addRule(); };
+$('pause').onclick = () => { setPaused(!paused); hud(); };
+$('again').onclick = () => { panels.forEach(fresh); clock = 0; setPaused(false); paint(true); hud(); };
+// Space is pause everywhere but in the rule box. Also on a button: after a click on restart or add
+// that button keeps the focus, and Space would press it again and throw the run away.
+addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target.id !== 'rule') { e.preventDefault(); $('pause').click(); }
+});
+addEventListener('keyup', e => { if (e.code === 'Space' && e.target.tagName === 'BUTTON') e.preventDefault(); });
+addEventListener('pointermove', e => { mouse = { x: e.clientX, y: e.clientY }; });
+document.addEventListener('mouseleave', () => { mouse = null; });
+addEventListener('resize', layout);
+
+rate = rateOf(+$('spd').value);
+setRules(null);
+if (demoM) {
+  clock = demoM[1] ? Math.min(+demoM[1], DEMO_MAX) : DEMO_STEPS;
+  for (const p of panels) advance(p.ant, clock);
+  // The rule of the demo comes last, when the start ants are where they will be shown: it may be a
+  // copy of one that is proved by now. In a demo every panel shows the same step, a copy too.
+  const rule = validRule(demoM[2] || '');
+  if (rule) { setRules(rule); const p = panels[0]; p.born = 0; advance(p.ant, clock - p.ant.steps); }
+  setPaused(true);
+}
+layout();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
