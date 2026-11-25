@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/ant-core"]
+members = ["crates/ant-core", "crates/atlas"]
 resolver = "2"
 
 [profile.release]
