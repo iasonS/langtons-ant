@@ -1,0 +1,12 @@
+[package]
+name = "atlas"
+version = "0.1.0"
+edition = "2021"
+description = "The Langton's ant atlas as a native window, on top of ant-core."
+publish = false
+
+[dependencies]
+ant-core = { path = "../ant-core" }
+eframe = { version = "0.37", default-features = false, features = ["wgpu", "wayland", "x11", "default_fonts"] }
+egui_kittest = { version = "0.37", features = ["wgpu", "eframe"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
