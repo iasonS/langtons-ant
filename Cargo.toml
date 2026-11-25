@@ -1,0 +1,10 @@
+[workspace]
+members = ["crates/ant-core"]
+resolver = "2"
+
+[profile.release]
+opt-level = 3
+
+# the long tests are quick with optimisations on
+[profile.test]
+opt-level = 3
