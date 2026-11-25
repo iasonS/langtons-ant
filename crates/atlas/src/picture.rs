@@ -1,7 +1,8 @@
 //! The decisions of the picture that are not drawing: what a panel says, the tooltip, the
 //! half-second rule, the frame budget, the clock, the demo and which panel a typed rule becomes.
 //! Plain functions over plain data (ant-core's `Ant`): no window, no egui. Everything here
-//! follows the picture block of `index.html` (`words`, `tipText`, `onShow`, `tick`, `frame`).
+//! follows the picture block of the original page (`index.html`, removed; in git history at
+//! 8cb1e5c: `words`, `tipText`, `onShow`, `tick`, `frame`).
 
 use ant_core::*;
 use std::time::{Duration, Instant};
@@ -603,7 +604,7 @@ impl Model {
         self.generation += 1;
     }
 
-    /// Demo (`#demo`): every ant at `steps`, paused; the rule comes last, when the start ants are
+    /// Demo (`--demo`): every ant at `steps`, paused; the rule comes last, when the start ants are
     /// where they will be shown (it may be a copy of one that is proved by now).
     pub fn demo(&mut self, steps: u64, rule: Option<&str>) {
         let steps = steps.min(DEMO_MAX);
